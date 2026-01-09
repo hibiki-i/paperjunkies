@@ -30,7 +30,21 @@ def main() -> None:
 
     st.session_state["cookies"] = cookies
 
-    refresh_token = cookies.get("sb_refresh_token") if cookies.ready() else None
+    # If the user explicitly clicked "Sign out", avoid immediately restoring a
+    # session from any persisted cookie value and clear it once cookies are ready.
+    if st.session_state.get("auth_signout_pending"):
+        if cookies.ready():
+            try:
+                cookies["sb_refresh_token"] = ""
+                cookies.save()
+            except Exception:
+                pass
+            st.session_state.pop("auth_signout_pending", None)
+        # Clear any in-memory auth state as a safety net.
+        auth.clear_auth_state()
+        refresh_token = None
+    else:
+        refresh_token = cookies.get("sb_refresh_token") if cookies.ready() else None
 
     if refresh_token and auth.get_auth_state() is None:
         try:

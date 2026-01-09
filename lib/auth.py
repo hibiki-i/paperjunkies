@@ -26,6 +26,10 @@ _SESSION_ACCESS_TOKEN_KEY = "supabase_access_token"
 _SESSION_REFRESH_TOKEN_KEY = "supabase_refresh_token"
 _SESSION_EMAIL_KEY = "user_email"
 
+# When set, the app should avoid restoring sessions from cookies and should
+# best-effort clear any persisted refresh token once the cookie component is ready.
+_SESSION_SIGNOUT_PENDING_KEY = "auth_signout_pending"
+
 
 def _get_session_str(key: str) -> str | None:
     val = st.session_state.get(key)
@@ -266,6 +270,9 @@ def render_auth_sidebar(
     target.caption(f"Signed in as {label}")
 
     if target.button("Sign out", type="secondary"):
+        # Mark sign-out intent so app bootstrap code can avoid re-auth from cookies
+        # and clear the persisted refresh token once the cookie component is ready.
+        st.session_state[_SESSION_SIGNOUT_PENDING_KEY] = True
         try:
             # Best-effort remote sign-out (clears refresh tokens server-side)
             sb = create_supabase(settings, access_token=auth.access_token)
@@ -275,14 +282,23 @@ def render_auth_sidebar(
 
         if "cookies" in st.session_state:
             cookies = st.session_state["cookies"]
-            if "sb_refresh_token" in cookies:
-                del cookies["sb_refresh_token"]
-                try:
+            # Only mutate cookies if the component has initialized; otherwise we'll
+            # clear it on the next run from app bootstrap code.
+            try:
+                if cookies.ready():
+                    cookies["sb_refresh_token"] = ""
                     cookies.save()
-                except Exception:
-                    pass
-
+            except Exception:
+                pass
+            
         clear_auth_state()
+
+        # Prefer explicit navigation to the login page when available.
+        if hasattr(st, "switch_page"):
+            try:
+                st.switch_page(DEFAULT_LOGIN_PAGE)
+            except Exception:
+                pass
         st.rerun()
 
 

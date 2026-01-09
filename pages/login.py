@@ -97,6 +97,9 @@ def main() -> None:
             email=auth.email,
         )
 
+        # If the user previously signed out, clear the bootstrap skip flag.
+        st.session_state.pop("auth_signout_pending", None)
+
         if "cookies" in st.session_state:
             cookies = st.session_state["cookies"]
             cookies["sb_refresh_token"] = auth.refresh_token
