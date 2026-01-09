@@ -6,7 +6,7 @@ from supabase.client import ClientOptions
 from .settings import Settings
 
 
-def create_supabase(settings: Settings) -> Client:
+def create_supabase(settings: Settings, *, access_token: str | None = None) -> Client:
     """Create a Supabase client.
 
     Notes:
@@ -19,7 +19,8 @@ def create_supabase(settings: Settings) -> Client:
     key = settings.supabase_service_role_key or settings.supabase_anon_key
 
     options: ClientOptions | None = None
-    if settings.supabase_access_token:
-        options = ClientOptions(headers={"Authorization": f"Bearer {settings.supabase_access_token}"})
+    token = access_token or settings.supabase_access_token
+    if token:
+        options = ClientOptions(headers={"Authorization": f"Bearer {token}"})
 
     return create_client(settings.supabase_url, key, options)

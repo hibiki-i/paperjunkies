@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from lib.auth import get_current_user_id
+from lib.auth import get_current_user_id, require_auth
 from lib.bibtex_utils import parse_bibtex_entry
 from lib.citation import format_citation
 from lib.db import fetch_profile, fetch_timeline_posts
@@ -41,7 +41,8 @@ def main() -> None:
     st.title("Timeline")
 
     settings = get_settings()
-    sb = create_supabase(settings)
+    auth = require_auth(settings)
+    sb = create_supabase(settings, access_token=auth.access_token)
 
     user_id = get_current_user_id()
 

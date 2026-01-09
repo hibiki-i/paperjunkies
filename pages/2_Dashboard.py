@@ -3,7 +3,7 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
-from lib.auth import get_current_user_id
+from lib.auth import get_current_user_id, require_auth
 from lib.dashboard_service import compute_semantic_trends, compute_time_of_day
 from lib.db import fetch_posts_for_dashboard, fetch_profile
 from lib.plots import ridgeline_hours, stream_plot
@@ -18,7 +18,8 @@ def main() -> None:
     st.title("Dashboard")
 
     settings = get_settings()
-    sb = create_supabase(settings)
+    auth = require_auth(settings)
+    sb = create_supabase(settings, access_token=auth.access_token)
 
     user_id = get_current_user_id()
 

@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 
 import streamlit as st
 
-from lib.auth import get_current_user_id
+from lib.auth import get_current_user_id, require_auth
 from lib.db import fetch_profile, upsert_profile_display_name, upsert_profile_style, upsert_profile_timezone
 from lib.settings import get_settings
 from lib.supabase_client import create_supabase
@@ -17,7 +17,8 @@ def main() -> None:
     st.title("Profile")
 
     settings = get_settings()
-    sb = create_supabase(settings)
+    auth = require_auth(settings)
+    sb = create_supabase(settings, access_token=auth.access_token)
 
     user_id = get_current_user_id()
 
