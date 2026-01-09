@@ -97,6 +97,13 @@ def main() -> None:
             email=auth.email,
         )
 
+        if "cookies" in st.session_state:
+            cookies = st.session_state["cookies"]
+            cookies["sb_refresh_token"] = auth.refresh_token
+            # Set a very long expiry for the cookie (e.g. 365 days) if supported by the library,
+            # effectively mimicking "infinite" timeout. The library usually persists if not session.
+            cookies.save()
+
         if hasattr(st, "switch_page"):
             st.switch_page("pages/1_Timeline.py")
         else:

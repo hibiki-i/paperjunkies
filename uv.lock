@@ -760,6 +760,7 @@ dependencies = [
     { name = "pylatexenc" },
     { name = "scikit-learn" },
     { name = "streamlit" },
+    { name = "streamlit-cookies-manager-v2" },
     { name = "streamlit-js-eval" },
     { name = "supabase" },
 ]
@@ -773,6 +774,7 @@ requires-dist = [
     { name = "pylatexenc", specifier = ">=2.10" },
     { name = "scikit-learn", specifier = ">=1.8.0" },
     { name = "streamlit", specifier = ">=1.52.2" },
+    { name = "streamlit-cookies-manager-v2", specifier = ">=0.3.1" },
     { name = "streamlit-js-eval", specifier = ">=0.1.7" },
     { name = "supabase", specifier = ">=2.27.1" },
 ]
@@ -1441,6 +1443,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/43/20/434aaceccc6e1912671d869926103051330437adba72d538d787a07727ef/streamlit-1.52.2.tar.gz", hash = "sha256:64a4dda8bc5cdd37bfd490e93bb53da35aaef946fcfc283a7980dacdf165108b", size = 8584178, upload-time = "2025-12-17T17:07:59.642Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c0/95/6b7873f0267973ebd55ba9cd33a690b35a116f2779901ef6185a0e21864d/streamlit-1.52.2-py3-none-any.whl", hash = "sha256:a16bb4fbc9781e173ce9dfbd8ffb189c174f148f9ca4fb8fa56423e84e193fc8", size = 9025937, upload-time = "2025-12-17T17:07:57.67Z" },
+]
+
+[[package]]
+name = "streamlit-cookies-manager-v2"
+version = "0.3.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cryptography" },
+    { name = "streamlit" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/31/34/ca8563a1766f48aa81c9fe5798edf53ae05409e622c21e61b2f022ec6f46/streamlit_cookies_manager_v2-0.3.1.tar.gz", hash = "sha256:ef327bd4b1c74a1c7a77a5769c1fa209adea762fddf9771918efc62306549c84", size = 311308, upload-time = "2025-08-26T14:45:12.994Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7e/d7/4cc9fead85cc997313e82caa8642693a3c8c00a7721604cf73449c921ab9/streamlit_cookies_manager_v2-0.3.1-py3-none-any.whl", hash = "sha256:8d7f201fe7af42d5a739472cc7998500fe1aedba24b3418fafdc84466b311df5", size = 556776, upload-time = "2025-08-26T14:45:11.047Z" },
 ]
 
 [[package]]

@@ -12,6 +12,7 @@ dependencies = [
     "pylatexenc>=2.10",
     "scikit-learn>=1.8.0",
     "streamlit>=1.52.2",
+    "streamlit-cookies-manager-v2>=0.3.1",
     "streamlit-js-eval>=0.1.7",
     "supabase>=2.27.1",
 ]

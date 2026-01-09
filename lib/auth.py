@@ -180,6 +180,12 @@ def require_auth(
     if existing is not None:
         return existing
 
+    # Check if we are waiting for cookies to load
+    if "cookies" in st.session_state:
+        cookies = st.session_state["cookies"]
+        if not cookies.ready():
+            st.stop()
+
     if redirect_to_login and hasattr(st, "switch_page"):
         try:
             st.switch_page(login_page)
@@ -219,6 +225,13 @@ def require_auth(
             refresh_token=auth.refresh_token,
             email=auth.email,
         )
+
+        if "cookies" in st.session_state:
+            cookies = st.session_state["cookies"]
+            if auth.refresh_token:
+                cookies["sb_refresh_token"] = auth.refresh_token
+                cookies.save()
+
         st.rerun()
 
     st.stop()
@@ -256,6 +269,16 @@ def render_auth_sidebar(
             sb.auth.sign_out()
         except Exception:
             pass
+
+        if "cookies" in st.session_state:
+            cookies = st.session_state["cookies"]
+            if "sb_refresh_token" in cookies:
+                del cookies["sb_refresh_token"]
+                try:
+                    cookies.save()
+                except Exception:
+                    pass
+
         clear_auth_state()
         st.rerun()
 

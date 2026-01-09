@@ -7,18 +7,55 @@ import streamlit as st
 import lib.auth as auth
 from lib.settings import get_settings
 from lib.ui import apply_max_width
-
+from streamlit_cookies_manager import EncryptedCookieManager
+from lib.supabase_client import create_supabase
 
 def main() -> None:
     st.set_page_config(page_title="Paperjunkies", layout="wide")
     apply_max_width()
 
+    settings = get_settings()
+
+    cookies = EncryptedCookieManager(
+        prefix="paperjunkies/auth/",
+        password=st.secrets.get("COOKIES_PASSWORD", "")
+    )
+
+    if not cookies.ready():
+        # Wait for the component to load and send back the cookies.
+        # We don't stop the app here because it might cause a white page glitch
+        # if the component takes time to load or if we are in a transition.
+        # Just skip the restore logic for this run.
+        pass
+
+    st.session_state["cookies"] = cookies
+
+    refresh_token = cookies.get("sb_refresh_token") if cookies.ready() else None
+
+    if refresh_token and auth.get_auth_state() is None:
+        try:
+            sb = create_supabase(settings)
+            resp = sb.auth.refresh_session(refresh_token)
+            session = getattr(resp, "session", None)
+            if session:
+                auth_state = auth.auth_state_from_session(session)
+                auth.set_auth_state(
+                    user_id=auth_state.user_id,
+                    access_token=auth_state.access_token,
+                    refresh_token=auth_state.refresh_token,
+                    email=auth_state.email
+                )
+                if auth_state.refresh_token and auth_state.refresh_token != refresh_token:
+                    cookies["sb_refresh_token"] = auth_state.refresh_token
+                    cookies.save()
+        except Exception:
+            pass
+    
     # Streamlit sometimes keeps imported modules cached across reruns.
     # Import `lib.auth` as a module so we can reload if needed.
     if not hasattr(auth, "require_auth") or not hasattr(auth, "render_auth_sidebar"):
         importlib.reload(auth)
 
-    settings = get_settings()
     st.sidebar.markdown("**Paperjunkies**")
 
     pages = [
