@@ -1,0 +1,17 @@
+[project]
+name = "paperjunkies"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "altair>=6.0.0",
+    "bibtexparser>=1.4.3",
+    "numpy>=2.4.0",
+    "pandas>=2.3.3",
+    "pylatexenc>=2.10",
+    "scikit-learn>=1.8.0",
+    "streamlit>=1.52.2",
+    "streamlit-js-eval>=0.1.7",
+    "supabase>=2.27.1",
+]
