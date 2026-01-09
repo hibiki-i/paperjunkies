@@ -113,7 +113,12 @@ def main() -> None:
             st.stop()
 
         try:
-            update_password(settings=settings, access_token=auth.access_token or "", new_password=new_password)
+            update_password(
+                settings=settings,
+                access_token=auth.access_token or "",
+                refresh_token=auth.refresh_token or "",
+                new_password=new_password,
+            )
         except Exception as e:
             st.error(f"Could not update password: {e}")
             st.stop()

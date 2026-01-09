@@ -156,10 +156,13 @@ def exchange_recovery_tokens_for_session(
     return auth
 
 
-def update_password(*, settings: Settings, access_token: str, new_password: str) -> None:
+def update_password(
+    *, settings: Settings, access_token: str, refresh_token: str, new_password: str
+) -> None:
     if not new_password:
         raise ValueError("Password is required.")
     sb = create_supabase(settings, access_token=access_token)
+    sb.auth.set_session(access_token, refresh_token)
     sb.auth.update_user({"password": new_password})
 
 
