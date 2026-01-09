@@ -224,18 +224,32 @@ def require_auth(
     st.stop()
 
 
-def render_auth_sidebar(*, settings: Settings, title: str = "Paperjunkies") -> None:
-    """Optional sidebar widget showing user + logout."""
+def render_auth_sidebar(
+    *,
+    settings: Settings,
+    title: str = "Paperjunkies",
+    container: Any | None = None,
+    show_title: bool = True,
+) -> None:
+    """Optional sidebar widget showing user + logout.
+
+    If `container` is provided, content is rendered there (useful for bottom-aligned sidebar layouts).
+    """
 
     auth = get_auth_state()
     if auth is None:
         return
 
     label = auth.email or auth.user_id
-    st.sidebar.markdown(f"**{title}**")
-    st.sidebar.caption(f"Signed in as {label}")
 
-    if st.sidebar.button("Sign out", type="secondary"):
+    target = container if container is not None else st.sidebar
+
+    if show_title:
+        target.markdown(f"**{title}**")
+
+    target.caption(f"Signed in as {label}")
+
+    if target.button("Sign out", type="secondary"):
         try:
             # Best-effort remote sign-out (clears refresh tokens server-side)
             sb = create_supabase(settings, access_token=auth.access_token)

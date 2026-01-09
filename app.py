@@ -19,7 +19,7 @@ def main() -> None:
         importlib.reload(auth)
 
     settings = get_settings()
-    auth.render_auth_sidebar(settings=settings)
+    st.sidebar.markdown("**Paperjunkies**")
 
     pages = [
         # Auth utility routes (kept out of sidebar links below)
@@ -42,6 +42,9 @@ def main() -> None:
         st.sidebar.page_link("pages/1_Timeline.py", label="Timeline", icon=":material/receipt_long:")
         st.sidebar.page_link("pages/2_Dashboard.py", label="Dashboard", icon=":material/insights:")
         st.sidebar.page_link("pages/3_Profile.py", label="Profile", icon=":material/person:")
+
+    footer = st.sidebar.container()
+    auth.render_auth_sidebar(settings=settings, container=footer, show_title=False)
     nav.run()
 
 
