@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 
 import streamlit as st
 
-from lib.auth import get_current_user_id, require_auth
+from lib.auth import get_current_user_id, require_auth, send_password_reset_email
 from lib.db import fetch_profile, upsert_profile_display_name, upsert_profile_style, upsert_profile_timezone
 from lib.settings import get_settings
 from lib.supabase_client import create_supabase
@@ -19,6 +19,25 @@ def main() -> None:
     settings = get_settings()
     auth = require_auth(settings)
     sb = create_supabase(settings, access_token=auth.access_token)
+
+    st.subheader("Account")
+    st.caption("Password changes are handled via a reset link sent to your email.")
+    if st.button("Reset password", type="secondary"):
+        if not auth.email:
+            st.error("No email available for this session. Please sign in again.")
+            st.stop()
+
+        redirect_to = None
+        if settings.app_base_url:
+            redirect_to = f"{settings.app_base_url.strip().rstrip('/')}/reset"
+
+        try:
+            send_password_reset_email(settings=settings, email=auth.email, redirect_to=redirect_to)
+        except Exception as e:
+            st.error(f"Could not send reset email: {e}")
+            st.stop()
+
+        st.success("Reset link sent. Check your email.")
 
     user_id = get_current_user_id()
 

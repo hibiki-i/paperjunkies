@@ -10,6 +10,7 @@ class Settings:
     supabase_anon_key: str
     supabase_service_role_key: str | None
     supabase_access_token: str | None
+    app_base_url: str | None
 
 
 def get_settings() -> Settings:
@@ -18,6 +19,7 @@ def get_settings() -> Settings:
     anon_key = os.getenv("SUPABASE_ANON_KEY", "").strip()
     service_role = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip() or None
     access_token = os.getenv("SUPABASE_ACCESS_TOKEN", "").strip() or None
+    app_base_url = os.getenv("APP_BASE_URL", "").strip() or None
 
     if (not url) or (not anon_key):
         try:
@@ -27,6 +29,7 @@ def get_settings() -> Settings:
             anon_key = anon_key or str(st.secrets.get("SUPABASE_ANON_KEY", "")).strip()
             service_role = service_role or str(st.secrets.get("SUPABASE_SERVICE_ROLE_KEY", "")).strip() or None
             access_token = access_token or str(st.secrets.get("SUPABASE_ACCESS_TOKEN", "")).strip() or None
+            app_base_url = app_base_url or str(st.secrets.get("APP_BASE_URL", "")).strip() or None
         except Exception:
             pass
 
@@ -40,4 +43,5 @@ def get_settings() -> Settings:
         supabase_anon_key=anon_key,
         supabase_service_role_key=service_role,
         supabase_access_token=access_token,
+        app_base_url=app_base_url,
     )

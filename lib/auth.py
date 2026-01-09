@@ -18,6 +18,9 @@ class AuthState:
     email: str | None
 
 
+DEFAULT_LOGIN_PAGE = "pages/login.py"
+
+
 _SESSION_USER_ID_KEY = "user_id"
 _SESSION_ACCESS_TOKEN_KEY = "supabase_access_token"
 _SESSION_REFRESH_TOKEN_KEY = "supabase_refresh_token"
@@ -115,7 +118,58 @@ def _session_to_auth_state(session: Any) -> AuthState:
     )
 
 
-def require_auth(settings: Settings, *, title: str = "Paperjunkies") -> AuthState:
+def auth_state_from_session(session: Any) -> AuthState:
+    return _session_to_auth_state(session)
+
+
+def send_password_reset_email(*, settings: Settings, email: str, redirect_to: str | None = None) -> None:
+    sb = create_supabase(settings)
+    clean = email.strip()
+    if not clean:
+        raise ValueError("Email is required.")
+
+    options: dict[str, Any] | None
+    if redirect_to and redirect_to.strip():
+        options = {"redirect_to": redirect_to.strip()}
+    else:
+        options = None
+
+    if options is None:
+        sb.auth.reset_password_for_email(clean)
+    else:
+        sb.auth.reset_password_for_email(clean, options)
+
+
+def exchange_recovery_tokens_for_session(
+    settings: Settings, *, access_token: str, refresh_token: str
+) -> AuthState:
+    sb = create_supabase(settings)
+    resp = sb.auth.set_session(access_token, refresh_token)
+    session = getattr(resp, "session", None) or resp
+    auth = _session_to_auth_state(session)
+    set_auth_state(
+        user_id=auth.user_id,
+        access_token=auth.access_token,
+        refresh_token=auth.refresh_token,
+        email=auth.email,
+    )
+    return auth
+
+
+def update_password(*, settings: Settings, access_token: str, new_password: str) -> None:
+    if not new_password:
+        raise ValueError("Password is required.")
+    sb = create_supabase(settings, access_token=access_token)
+    sb.auth.update_user({"password": new_password})
+
+
+def require_auth(
+    settings: Settings,
+    *,
+    title: str = "Paperjunkies",
+    redirect_to_login: bool = True,
+    login_page: str = DEFAULT_LOGIN_PAGE,
+) -> AuthState:
     """Gate the app behind Supabase Auth (email/password).
 
     - If authenticated, returns AuthState.
@@ -125,6 +179,13 @@ def require_auth(settings: Settings, *, title: str = "Paperjunkies") -> AuthStat
     existing = get_auth_state()
     if existing is not None:
         return existing
+
+    if redirect_to_login and hasattr(st, "switch_page"):
+        try:
+            st.switch_page(login_page)
+        except Exception:
+            # Fall back to inline login UI.
+            pass
 
     st.title(f"{title} — Sign in")
     st.caption("Sign in with your Supabase account to continue.")
