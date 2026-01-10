@@ -56,7 +56,7 @@ def main() -> None:
     st.header(":material/owl: Semantic trends")
     col_a1, col_a2 = st.columns(2)
     with col_a1:
-        grain = st.selectbox("Aggregate by", options=["weekly", "monthly"], index=1)
+        grain = st.selectbox("Aggregate by", options=["daily", "weekly", "monthly"], index=2)
     with col_a2:
         top_k = st.slider("Top terms", min_value=5, max_value=25, value=12, step=1)
 

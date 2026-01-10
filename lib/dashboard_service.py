@@ -28,7 +28,7 @@ def compute_semantic_trends(
 ) -> SemanticTrendsResult:
     """Aggregate term usage over time from title+abstract.
 
-    time_grain: 'weekly' | 'monthly'
+    time_grain: 'daily' | 'weekly' | 'monthly'
     """
 
     df = _posts_to_df(posts, timezone=timezone)
@@ -118,15 +118,18 @@ def _posts_to_df(posts: list[dict], *, timezone: str) -> pd.DataFrame:
 
 
 def _period_start(dt: datetime, grain: str) -> datetime:
-    d = dt
+    d = pd.Timestamp(dt)
+    if grain == "daily":
+        start = d.normalize()
+        return start.to_pydatetime()
     if grain == "weekly":
         # Monday-start week
         start = (d - pd.to_timedelta(d.weekday(), unit="D")).normalize()
         return start.to_pydatetime()
     if grain == "monthly":
         start = d.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        return start
-    raise ValueError("time_grain must be 'weekly' or 'monthly'")
+        return start.to_pydatetime()
+    raise ValueError("time_grain must be 'daily', 'weekly', or 'monthly'")
 
 
 def _group_label(dt: datetime, group_by: str) -> str:
