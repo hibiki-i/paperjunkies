@@ -5,10 +5,10 @@ import streamlit as st
 from lib.auth import get_current_user_id, require_auth
 from lib.bibtex_utils import parse_bibtex_entry
 from lib.citation import format_citation
-from lib.db import fetch_profile, fetch_timeline_posts
+from lib.db import fetch_profile, fetch_timeline_posts, fetch_user_post_dates
 from lib.settings import get_settings
 from lib.supabase_client import create_supabase
-from lib.timeline_service import post_read
+from lib.timeline_service import calculate_streak, post_read
 from lib.timezone_streamlit import maybe_detect_and_persist_timezone
 from lib.timezone_utils import format_in_timezone
 from lib.ui import apply_max_width
@@ -53,10 +53,26 @@ def main() -> None:
         profile_timezone=me.timezone if me else None,
     )
 
-    col1, _col2 = st.columns([1, 5])
+    streak = 0
+    if user_id:
+        dates = fetch_user_post_dates(sb, user_id)
+        streak = calculate_streak(dates, effective_tz)
+
+    col1, col2 = st.columns([1, 5])
     with col1:
         if st.button("Post", type="primary", icon=":material/add:"):
             post_article_dialog(sb, user_id=user_id)
+
+    with col2:
+        if streak > 0:
+            # Align with the button height (approx 37px in Streamlit) and center vertically
+            st.markdown(
+                f"<div style='display: flex; align-items: center; height: 37px; font-size: 1rem;'>"
+                f"<span style='font-size: 1.25rem; color: #E25822; margin-right: 6px;'>🔥</span>"
+                f"<span style='font-weight: 600; color: #444;'>{streak} day streak</span>"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
 
     timeline = fetch_timeline_posts(sb, limit=50)
     if not timeline:

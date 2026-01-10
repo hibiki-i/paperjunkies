@@ -159,6 +159,18 @@ def fetch_timeline_posts(sb: Client, limit: int = 50) -> list[TimelinePost]:
     return timeline
 
 
+def fetch_user_post_dates(sb: Client, user_id: str) -> list[datetime]:
+    resp = (
+        sb.table("posts")
+        .select("read_at")
+        .eq("user_id", user_id)
+        .order("read_at", desc=True)
+        .execute()
+    )
+    data = resp.data or []
+    return [_parse_dt(row["read_at"]) for row in data]
+
+
 def fetch_posts_for_dashboard(sb: Client, user_id: str | None) -> list[dict[str, Any]]:
     q = sb.table("posts").select("id,user_id,reference_id,read_at")
     if user_id:

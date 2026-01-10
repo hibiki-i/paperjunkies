@@ -51,7 +51,7 @@ def main() -> None:
     else:
         st.plotly_chart(
             ridgeline_hours(combined, max_groups=12, color_by="scope"),
-            use_container_width=True,
+            width="stretch",
         )
 
     st.divider()
@@ -73,7 +73,7 @@ def main() -> None:
     if personal_trends.data.empty:
         st.info("Not enough personal data to compute semantic trends yet.")
     else:
-        st.plotly_chart(stream_plot(personal_trends.data), use_container_width=True)
+        st.plotly_chart(stream_plot(personal_trends.data), width="stretch")
 
     st.subheader("Team")
     team_trends = compute_semantic_trends(
@@ -85,7 +85,7 @@ def main() -> None:
     if team_trends.data.empty:
         st.info("Not enough team data to compute semantic trends yet.")
     else:
-        st.plotly_chart(stream_plot(team_trends.data), use_container_width=True)
+        st.plotly_chart(stream_plot(team_trends.data), width="stretch")
 
 
 if __name__ == "__main__":
