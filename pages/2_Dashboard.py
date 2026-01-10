@@ -36,7 +36,7 @@ def main() -> None:
     st.divider()
 
     st.header(":material/schedule: Reading habits")
-    group_by = st.selectbox("Group by", options=["daily", "weekly", "monthly", "yearly"], index=2)
+    group_by = st.selectbox("Group by", options=["weekly", "monthly", "yearly"], index=1)
     personal_tod = compute_time_of_day(personal_posts, group_by=group_by, timezone=effective_tz)
     team_tod = compute_time_of_day(team_posts, group_by=group_by, timezone=effective_tz)
 
@@ -49,14 +49,17 @@ def main() -> None:
     if combined.empty:
         st.info("Not enough data to compute time-of-day patterns yet.")
     else:
-        st.altair_chart(ridgeline_hours(combined, max_groups=12, color_by="scope"), width="stretch")
+        st.plotly_chart(
+            ridgeline_hours(combined, max_groups=12, color_by="scope"),
+            use_container_width=True,
+        )
 
     st.divider()
 
     st.header(":material/owl: Semantic trends")
     col_a1, col_a2 = st.columns(2)
     with col_a1:
-        grain = st.selectbox("Aggregate by", options=["daily", "weekly", "monthly"], index=2)
+        grain = st.selectbox("Aggregate by", options=["weekly", "monthly"], index=1)
     with col_a2:
         top_k = st.slider("Top terms", min_value=5, max_value=25, value=12, step=1)
 
@@ -70,7 +73,7 @@ def main() -> None:
     if personal_trends.data.empty:
         st.info("Not enough personal data to compute semantic trends yet.")
     else:
-        st.altair_chart(stream_plot(personal_trends.data), width="stretch")
+        st.plotly_chart(stream_plot(personal_trends.data), use_container_width=True)
 
     st.subheader("Team")
     team_trends = compute_semantic_trends(
@@ -82,7 +85,7 @@ def main() -> None:
     if team_trends.data.empty:
         st.info("Not enough team data to compute semantic trends yet.")
     else:
-        st.altair_chart(stream_plot(team_trends.data), width="stretch")
+        st.plotly_chart(stream_plot(team_trends.data), use_container_width=True)
 
 
 if __name__ == "__main__":
