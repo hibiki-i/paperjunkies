@@ -63,8 +63,12 @@ def main() -> None:
                     cookies["sb_refresh_token"] = auth_state.refresh_token
                     cookies.save()
                     st.rerun()
-        except Exception as e:
-            st.warning(f"Session refresh failed: {e}")
+        except Exception:
+            # Token is likely invalid, expired, or revoked. Clear it so we don't loop.
+            if cookies.ready():
+                cookies["sb_refresh_token"] = ""
+                cookies.save()
+            st.warning("Session expired. Please sign in again.")
     
     # Streamlit sometimes keeps imported modules cached across reruns.
     # Import `lib.auth` as a module so we can reload if needed.
