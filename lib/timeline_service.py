@@ -34,9 +34,9 @@ def post_read(sb: Client, *, user_id: str, parsed: ParsedBibtex, note: str | Non
     return existing, post
 
 
-def calculate_streak(dates: list[datetime], timezone_name: str | None) -> int:
+def calculate_streak(dates: list[datetime], timezone_name: str | None) -> tuple[int, bool]:
     if not dates:
-        return 0
+        return 0, False
 
     tz = get_zoneinfo(timezone_name)
     now_local = datetime.now(tz)
@@ -50,17 +50,20 @@ def calculate_streak(dates: list[datetime], timezone_name: str | None) -> int:
     )
 
     if not local_dates:
-        return 0
+        return 0, False
 
     streak = 0
+    includes_today = False
+
     # Check if the sequence starts today or yesterday
     if local_dates[0] == today:
         current_check = today
+        includes_today = True
     elif local_dates[0] == yesterday:
         current_check = yesterday
     else:
         # Streak broken
-        return 0
+        return 0, False
 
     for d in local_dates:
         if d == current_check:
@@ -73,4 +76,4 @@ def calculate_streak(dates: list[datetime], timezone_name: str | None) -> int:
             # skipped a day
             break
 
-    return streak
+    return streak, includes_today

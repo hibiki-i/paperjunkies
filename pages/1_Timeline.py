@@ -54,9 +54,10 @@ def main() -> None:
     )
 
     streak = 0
+    includes_today = False
     if user_id:
         dates = fetch_user_post_dates(sb, user_id)
-        streak = calculate_streak(dates, effective_tz)
+        streak, includes_today = calculate_streak(dates, effective_tz)
 
     col1, col2 = st.columns([1, 5])
     with col1:
@@ -64,11 +65,25 @@ def main() -> None:
             post_article_dialog(sb, user_id=user_id)
 
     with col2:
-        if streak > 0:
+        if user_id:
+            # Active streak (today) gets the bright orange fire.
+            # Streak valid but not extended today (or 0 streak) gets a muted gray fire.
+            if includes_today:
+                icon_style = "color: #E25822;"
+                tooltip = "Streak active! You have posted today."
+            elif streak > 0:
+                # Use grayscale filter for rendering the emoji in gray
+                icon_style = "color: #9E9E9E; filter: grayscale(100%); opacity: 0.7;"
+                tooltip = "Streak at risk! Post today to keep it going."
+            else:
+                # 0 streak
+                icon_style = "color: #9E9E9E; filter: grayscale(100%); opacity: 0.7;"
+                tooltip = "Start your streak! Post something today."
+
             # Align with the button height (approx 37px in Streamlit) and center vertically
             st.markdown(
-                f"<div style='display: flex; align-items: center; height: 37px; font-size: 1rem;'>"
-                f"<span style='font-size: 1.25rem; color: #E25822; margin-right: 6px;'>🔥</span>"
+                f"<div style='display: flex; align-items: center; height: 37px; font-size: 1rem;' title='{tooltip}'>"
+                f"<span style='font-size: 1.25rem; margin-right: 6px; {icon_style}'>🔥</span>"
                 f"<span style='font-weight: 600; color: #444;'>{streak} day streak</span>"
                 f"</div>",
                 unsafe_allow_html=True,
