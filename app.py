@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import time
 
 import streamlit as st
 
@@ -18,7 +19,11 @@ def main() -> None:
 
     cookies = EncryptedCookieManager(
         prefix="paperjunkies/auth/",
-        password=st.secrets.get("COOKIES_PASSWORD", "")
+        password=st.secrets.get("COOKIES_PASSWORD", ""),
+        # Force cookies to be readable across the entire app. Without an explicit
+        # path, Streamlit/component routes can cause cookies to be scoped to an
+        # internal path (e.g. /~/+) and then they won't be sent on normal page loads.
+        path="/",
     )
 
     if not cookies.ready():
@@ -46,7 +51,13 @@ def main() -> None:
     else:
         refresh_token = cookies.get("sb_refresh_token") if cookies.ready() else None
 
-    if refresh_token and auth.get_auth_state() is None:
+    # If a refresh attempt just failed, avoid hammering Supabase on immediate reruns.
+    last_refresh_failure_ts = st.session_state.get("auth_refresh_failure_ts")
+    recently_failed_refresh = (
+        isinstance(last_refresh_failure_ts, (int, float)) and (time.time() - float(last_refresh_failure_ts) < 30)
+    )
+
+    if refresh_token and auth.get_auth_state() is None and not recently_failed_refresh:
         try:
             sb = create_supabase(settings)
             resp = sb.auth.refresh_session(refresh_token)
@@ -59,16 +70,16 @@ def main() -> None:
                     refresh_token=auth_state.refresh_token,
                     email=auth_state.email
                 )
+                st.session_state.pop("auth_refresh_failure_ts", None)
                 if auth_state.refresh_token and auth_state.refresh_token != refresh_token:
                     cookies["sb_refresh_token"] = auth_state.refresh_token
                     cookies.save()
                     st.rerun()
         except Exception:
-            # Token is likely invalid, expired, or revoked. Clear it so we don't loop.
-            if cookies.ready():
-                cookies["sb_refresh_token"] = ""
-                cookies.save()
-            st.warning("Session expired. Please sign in again.")
+            # Token might be invalid/expired/revoked, or this could be a transient failure.
+            # Don't immediately clear the cookie; let a successful login overwrite it.
+            st.session_state["auth_refresh_failure_ts"] = time.time()
+            st.session_state["auth_warning"] = "Session expired. Please sign in again."
     
     # Streamlit sometimes keeps imported modules cached across reruns.
     # Import `lib.auth` as a module so we can reload if needed.

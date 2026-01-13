@@ -58,6 +58,10 @@ def main() -> None:
     apply_max_width()
     st.title("Paperjunkies — Sign in")
 
+    if "auth_warning" in st.session_state:
+        st.warning(st.session_state["auth_warning"])
+        del st.session_state["auth_warning"]
+
     settings = get_settings()
 
     existing = get_auth_state()
@@ -99,6 +103,7 @@ def main() -> None:
 
         # If the user previously signed out, clear the bootstrap skip flag.
         st.session_state.pop("auth_signout_pending", None)
+        st.session_state.pop("auth_refresh_failure_ts", None)
 
         if "cookies" in st.session_state:
             cookies = st.session_state["cookies"]
