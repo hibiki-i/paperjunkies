@@ -15,7 +15,13 @@ def stream_plot(df: pd.DataFrame) -> go.Figure:
     """
 
     if df.empty:
-        return go.Figure()
+        fig = go.Figure()
+        fig.add_annotation(
+            text="No data available",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5, showarrow=False
+        )
+        return fig
 
     unique_periods = df["period"].nunique(dropna=True)
     if unique_periods <= 1:
@@ -31,7 +37,11 @@ def stream_plot(df: pd.DataFrame) -> go.Figure:
             color="term",
             labels={"count": "Term frequency", "term": "Term"},
         )
-        fig.update_layout(height=320)
+        fig.update_layout(
+            height=320,
+            margin=dict(l=20, r=20, t=10, b=20),
+            showlegend=False
+        )
         return fig
 
     # This provides a standard stacked area visualization.
@@ -40,9 +50,24 @@ def stream_plot(df: pd.DataFrame) -> go.Figure:
         x="period",
         y="count",
         color="term",
+        line_shape="spline",  # Softer curves for "stream" feel
         labels={"count": "Term frequency", "period": "Period", "term": "Term"},
     )
-    fig.update_layout(height=320)
+    
+    fig.update_layout(
+        height=320,
+        margin=dict(l=20, r=20, t=20, b=20),
+        hovermode="x unified",  # Critical for stacked charts
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        ),
+        xaxis=dict(showgrid=False),
+        yaxis=dict(showgrid=True, gridcolor='rgba(200,200,200,0.2)'),
+    )
 
     return fig
 
@@ -59,7 +84,13 @@ def ridgeline_hours(
     """
 
     if df.empty:
-        return go.Figure()
+        fig = go.Figure()
+        fig.add_annotation(
+            text="No data available",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5, showarrow=False
+        )
+        return fig
 
     # Keep it readable by limiting groups (most recent max_groups)
     groups = sorted(df["group"].unique().tolist())[-max_groups:]
@@ -161,12 +192,13 @@ def ridgeline_hours(
                 x=x_poly,
                 y=y_poly,
                 mode='lines',
-                line=dict(width=1, color=color or '#636EFA'),
+                line=dict(width=1.5, color=color or '#636EFA'),
                 fill='toself',
                 name=legend_name if color_by else label, 
                 legendgroup=legend_group if color_by else None,
                 showlegend=show_legend,
-                hoverinfo='x+name',
+                hovertemplate="<b>%{text}</b><br>Hour: %{x:.1f}<extra></extra>",
+                text=[label] * len(x_poly), # Pass label for hover template
             ))
 
     # Layout updates
@@ -174,7 +206,13 @@ def ridgeline_hours(
     tick_text = groups
     
     fig.update_layout(
-        xaxis=dict(title="Hour of day", range=[0, 24]),
+        xaxis=dict(
+            title="Hour of day", 
+            range=[0, 24],
+            tickmode='array',
+            tickvals=[0, 6, 12, 18, 24],
+            ticktext=["12 AM", "6 AM", "12 PM", "6 PM", "12 AM"],
+        ),
         yaxis=dict(
             title=None,
             tickmode='array',
@@ -184,9 +222,9 @@ def ridgeline_hours(
             zeroline=False
         ),
         height=max(400, len(groups) * 50),
-        margin=dict(l=10, r=10, t=40, b=40),
+        margin=dict(l=10, r=20, t=40, b=40),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1) if color_by else None,
-        hovermode="x unified"
+        hovermode="closest"
     )
 
     return fig
