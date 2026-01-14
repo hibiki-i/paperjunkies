@@ -15,4 +15,5 @@ dependencies = [
     "streamlit-js-eval>=0.1.7",
     "supabase>=2.27.1",
     "plotly>=6.5.1",
+    "cryptography>=46.0.3",
 ]

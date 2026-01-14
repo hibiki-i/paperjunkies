@@ -6,6 +6,11 @@ from typing import Any
 
 import streamlit as st
 
+try:
+    from streamlit_js_eval import streamlit_js_eval
+except Exception:  # pragma: no cover
+    streamlit_js_eval = None  # type: ignore[assignment]
+
 from .settings import Settings
 from .supabase_client import create_supabase
 
@@ -19,6 +24,30 @@ class AuthState:
 
 
 DEFAULT_LOGIN_PAGE = "pages/login.py"
+
+PERSISTENT_REFRESH_COOKIE = "paperjunkies_rt"
+
+
+def _should_set_secure_cookie() -> bool:
+    try:
+        origin = str(getattr(st, "context").headers.get("origin") or "")
+    except Exception:
+        origin = ""
+    return origin.startswith("https://")
+
+
+def _clear_persistent_refresh_cookie() -> None:
+    if streamlit_js_eval is None:
+        return
+    secure = "; Secure" if _should_set_secure_cookie() else ""
+    js = (
+        "(() => {"
+        f"const n={PERSISTENT_REFRESH_COOKIE!r};"
+        f"document.cookie = encodeURIComponent(n) + '=; Max-Age=0; path=/; SameSite=Lax{secure}';"
+        "return true;"
+        "})()"
+    )
+    streamlit_js_eval(js_expressions=js, want_output=False, key="clear_persistent_rt_sidebar")
 
 
 _SESSION_USER_ID_KEY = "user_id"
@@ -292,6 +321,7 @@ def render_auth_sidebar(
                 pass
             
         clear_auth_state()
+        _clear_persistent_refresh_cookie()
 
         # Prefer explicit navigation to the login page when available.
         if hasattr(st, "switch_page"):

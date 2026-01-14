@@ -2,14 +2,46 @@ from __future__ import annotations
 
 import importlib
 import time
+from typing import Any
 
 import streamlit as st
 
 import lib.auth as auth
+from lib.persistent_cookie import decrypt_value
 from lib.settings import get_settings
 from lib.ui import apply_max_width
 from streamlit_cookies_manager import EncryptedCookieManager
 from lib.supabase_client import create_supabase
+
+try:
+    from streamlit_js_eval import streamlit_js_eval
+except Exception:  # pragma: no cover
+    streamlit_js_eval = None  # type: ignore[assignment]
+
+
+PERSISTENT_REFRESH_COOKIE = "paperjunkies_rt"
+
+
+def _should_set_secure_cookie() -> bool:
+    try:
+        origin = str(getattr(st, "context").headers.get("origin") or "")
+    except Exception:
+        origin = ""
+    return origin.startswith("https://")
+
+
+def _clear_persistent_refresh_cookie() -> None:
+    if streamlit_js_eval is None:
+        return
+    secure = "; Secure" if _should_set_secure_cookie() else ""
+    js = (
+        "(() => {"
+        f"const n={PERSISTENT_REFRESH_COOKIE!r};"
+        f"document.cookie = encodeURIComponent(n) + '=; Max-Age=0; path=/; SameSite=Lax{secure}';"
+        "return true;"
+        "})()"
+    )
+    streamlit_js_eval(js_expressions=js, want_output=False, key="clear_persistent_rt")
 
 def main() -> None:
     st.set_page_config(page_title="Paperjunkies", layout="wide")
@@ -35,6 +67,17 @@ def main() -> None:
 
     st.session_state["cookies"] = cookies
 
+    cookie_password = str(st.secrets.get("COOKIES_PASSWORD", "") or "")
+
+    # Preferred persistent auth cookie (root path, encrypted).
+    persistent_refresh_token: str | None = None
+    try:
+        raw_cookie_val = getattr(st, "context").cookies.get(PERSISTENT_REFRESH_COOKIE)
+        if raw_cookie_val:
+            persistent_refresh_token = decrypt_value(password=cookie_password, token=str(raw_cookie_val))
+    except Exception:
+        persistent_refresh_token = None
+
     # If the user explicitly clicked "Sign out", avoid immediately restoring a
     # session from any persisted cookie value and clear it once cookies are ready.
     if st.session_state.get("auth_signout_pending"):
@@ -45,11 +88,14 @@ def main() -> None:
             except Exception:
                 pass
             st.session_state.pop("auth_signout_pending", None)
+        _clear_persistent_refresh_cookie()
         # Clear any in-memory auth state as a safety net.
         auth.clear_auth_state()
         refresh_token = None
     else:
-        refresh_token = cookies.get("sb_refresh_token") if cookies.ready() else None
+        refresh_token = persistent_refresh_token
+        if not refresh_token:
+            refresh_token = cookies.get("sb_refresh_token") if cookies.ready() else None
 
     # If a refresh attempt just failed, avoid hammering Supabase on immediate reruns.
     last_refresh_failure_ts = st.session_state.get("auth_refresh_failure_ts")
