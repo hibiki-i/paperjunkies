@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import time
+from urllib.parse import unquote
 
 import streamlit as st
 
@@ -48,8 +49,8 @@ def _set_persistent_refresh_cookie(*, refresh_token: str, cookie_password: str) 
         "(() => {"
         f"const n={PERSISTENT_REFRESH_COOKIE!r};"
         f"const v={ciphertext!r};"
-        "const exp = new Date(Date.now() + 365*24*60*60*1000).toUTCString();"
-        f"document.cookie = encodeURIComponent(n) + '=' + encodeURIComponent(v) + '; expires=' + exp + '; path=/; SameSite=Lax{secure}';"
+        "const maxAge = 365*24*60*60;"
+        f"document.cookie = n + '=' + v + '; Max-Age=' + maxAge + '; Path=/; SameSite=Lax{secure}';"
         "return true;"
         "})()"
     )
@@ -64,7 +65,7 @@ def _clear_persistent_refresh_cookie() -> None:
     js = (
         "(() => {"
         f"const n={PERSISTENT_REFRESH_COOKIE!r};"
-        f"document.cookie = encodeURIComponent(n) + '=; Max-Age=0; path=/; SameSite=Lax{secure}';"
+        f"document.cookie = n + '=; Max-Age=0; Path=/; SameSite=Lax{secure}';"
         "return true;"
         "})()"
     )
@@ -101,7 +102,9 @@ def main() -> None:
     try:
         raw_cookie_val = getattr(st, "context").cookies.get(PERSISTENT_REFRESH_COOKIE)
         if raw_cookie_val:
-            persistent_refresh_token = decrypt_value(password=cookie_password, token=str(raw_cookie_val))
+            # Defensive: some JS cookie setters encode values; decode before decrypt.
+            decoded = unquote(str(raw_cookie_val))
+            persistent_refresh_token = decrypt_value(password=cookie_password, token=decoded)
     except Exception:
         persistent_refresh_token = None
 
