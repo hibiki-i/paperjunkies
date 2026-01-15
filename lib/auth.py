@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import base64
+import json
 import os
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -13,6 +16,8 @@ except Exception:  # pragma: no cover
 
 from .settings import Settings
 from .supabase_client import create_supabase
+
+from .persistent_cookie import encrypt_value
 
 
 @dataclass(frozen=True)
@@ -58,6 +63,75 @@ _SESSION_EMAIL_KEY = "user_email"
 # When set, the app should avoid restoring sessions from cookies and should
 # best-effort clear any persisted refresh token once the cookie component is ready.
 _SESSION_SIGNOUT_PENDING_KEY = "auth_signout_pending"
+
+
+PERSISTENT_REFRESH_COOKIE = "paperjunkies_rt"
+
+
+def _jwt_expiry_ts(access_token: str) -> int | None:
+    """Return JWT exp (unix seconds) without verifying signature."""
+
+    tok = (access_token or "").strip()
+    if not tok or tok.count(".") < 2:
+        return None
+    try:
+        _header_b64, payload_b64, _sig_b64 = tok.split(".", 2)
+        payload_b64 += "=" * (-len(payload_b64) % 4)
+        payload = json.loads(base64.urlsafe_b64decode(payload_b64.encode("utf-8")).decode("utf-8"))
+        exp = payload.get("exp")
+        if isinstance(exp, (int, float)):
+            return int(exp)
+        return None
+    except Exception:
+        return None
+
+
+def _is_access_token_expired(access_token: str | None, *, skew_seconds: int = 30) -> bool:
+    tok = (access_token or "").strip()
+    if not tok:
+        return True
+    exp = _jwt_expiry_ts(tok)
+    if exp is None:
+        # If we can't parse exp, don't assume it's valid forever.
+        return True
+    return time.time() >= (exp - skew_seconds)
+
+
+def _should_set_secure_cookie() -> bool:
+    try:
+        headers = getattr(st, "context").headers
+        origin = str(headers.get("origin") or "")
+        xf_proto = str(headers.get("x-forwarded-proto") or "")
+    except Exception:
+        origin = ""
+        xf_proto = ""
+    return origin.startswith("https://") or xf_proto.lower().startswith("https")
+
+
+def _set_persistent_refresh_cookie(refresh_token: str) -> None:
+    if streamlit_js_eval is None:
+        return
+    cookie_password = str(st.secrets.get("COOKIES_PASSWORD", "") or "")
+    if not cookie_password.strip():
+        return
+    if not refresh_token.strip():
+        return
+    try:
+        ciphertext = encrypt_value(password=cookie_password, value=refresh_token)
+    except Exception:
+        return
+
+    secure = "; Secure" if _should_set_secure_cookie() else ""
+    js = (
+        "(() => {"
+        f"const n={PERSISTENT_REFRESH_COOKIE!r};"
+        f"const v={ciphertext!r};"
+        "const exp = new Date(Date.now() + 365*24*60*60*1000).toUTCString();"
+        f"document.cookie = encodeURIComponent(n) + '=' + encodeURIComponent(v) + '; expires=' + exp + '; path=/; SameSite=Lax{secure}';"
+        "return true;"
+        "})()"
+    )
+    streamlit_js_eval(js_expressions=js, want_output=False, key=f"set_persistent_rt_auth_{abs(hash(ciphertext)) % 1_000_000}")
 
 
 def _get_session_str(key: str) -> str | None:
@@ -214,6 +288,48 @@ def require_auth(
 
     existing = get_auth_state()
     if existing is not None:
+        # If the access token is expired, refresh the session using the refresh token.
+        # Otherwise, Supabase requests will fail with APIError PGRST303 (JWT expired).
+        refresh_token = (existing.refresh_token or "").strip() or None
+        if refresh_token and _is_access_token_expired(existing.access_token):
+            last_refresh_failure_ts = st.session_state.get("auth_refresh_failure_ts")
+            recently_failed_refresh = (
+                isinstance(last_refresh_failure_ts, (int, float))
+                and (time.time() - float(last_refresh_failure_ts) < 30)
+            )
+            if not recently_failed_refresh:
+                try:
+                    sb = create_supabase(settings)
+                    resp = sb.auth.refresh_session(refresh_token)
+                    session = getattr(resp, "session", None)
+                    if session:
+                        refreshed = auth_state_from_session(session)
+                        set_auth_state(
+                            user_id=refreshed.user_id,
+                            access_token=refreshed.access_token,
+                            refresh_token=refreshed.refresh_token,
+                            email=refreshed.email,
+                        )
+                        st.session_state.pop("auth_refresh_failure_ts", None)
+
+                        # Persist rotated refresh tokens.
+                        if refreshed.refresh_token and refreshed.refresh_token != refresh_token:
+                            if "cookies" in st.session_state:
+                                cookies = st.session_state["cookies"]
+                                try:
+                                    if cookies.ready():
+                                        cookies["sb_refresh_token"] = refreshed.refresh_token
+                                        cookies.save()
+                                except Exception:
+                                    pass
+                            _set_persistent_refresh_cookie(refreshed.refresh_token)
+
+                        return refreshed
+                except Exception:
+                    st.session_state["auth_refresh_failure_ts"] = time.time()
+                    st.session_state["auth_warning"] = "Session expired. Please sign in again."
+                    clear_auth_state()
+
         return existing
 
     # Check if we are waiting for cookies to load

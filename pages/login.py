@@ -19,10 +19,13 @@ PERSISTENT_REFRESH_COOKIE = "paperjunkies_rt"
 
 def _should_set_secure_cookie() -> bool:
     try:
-        origin = str(getattr(st, "context").headers.get("origin") or "")
+        headers = getattr(st, "context").headers
+        origin = str(headers.get("origin") or "")
+        xf_proto = str(headers.get("x-forwarded-proto") or "")
     except Exception:
         origin = ""
-    return origin.startswith("https://")
+        xf_proto = ""
+    return origin.startswith("https://") or xf_proto.lower().startswith("https")
 
 
 def _set_persistent_refresh_cookie(ciphertext: str) -> None:
@@ -105,6 +108,13 @@ def main() -> None:
             _set_persistent_refresh_cookie(pending_cookie)
             st.session_state["persistent_rt_written"] = True
             st.rerun()
+        # Cookie write attempt happened; now clear flags and continue to app.
+        st.session_state.pop("pending_persistent_rt", None)
+        st.session_state.pop("persistent_rt_written", None)
+        if hasattr(st, "switch_page"):
+            st.switch_page("pages/1_Timeline.py")
+        else:
+            st.rerun()
 
     existing = get_auth_state()
     if existing is not None:
@@ -164,6 +174,10 @@ def main() -> None:
             # Set a very long expiry for the cookie (e.g. 365 days) if supported by the library,
             # effectively mimicking "infinite" timeout. The library usually persists if not session.
             cookies.save()
+
+        # Force a rerun so we can set the persistent cookie before navigating.
+        if st.session_state.get("pending_persistent_rt"):
+            st.rerun()
 
         if hasattr(st, "switch_page"):
             st.switch_page("pages/1_Timeline.py")

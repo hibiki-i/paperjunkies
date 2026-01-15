@@ -2,12 +2,11 @@ from __future__ import annotations
 
 import importlib
 import time
-from typing import Any
 
 import streamlit as st
 
 import lib.auth as auth
-from lib.persistent_cookie import decrypt_value
+from lib.persistent_cookie import decrypt_value, encrypt_value
 from lib.settings import get_settings
 from lib.ui import apply_max_width
 from streamlit_cookies_manager import EncryptedCookieManager
@@ -24,10 +23,38 @@ PERSISTENT_REFRESH_COOKIE = "paperjunkies_rt"
 
 def _should_set_secure_cookie() -> bool:
     try:
-        origin = str(getattr(st, "context").headers.get("origin") or "")
+        headers = getattr(st, "context").headers
+        origin = str(headers.get("origin") or "")
+        xf_proto = str(headers.get("x-forwarded-proto") or "")
     except Exception:
         origin = ""
-    return origin.startswith("https://")
+        xf_proto = ""
+    return origin.startswith("https://") or xf_proto.lower().startswith("https")
+
+
+def _set_persistent_refresh_cookie(*, refresh_token: str, cookie_password: str) -> None:
+    if streamlit_js_eval is None:
+        return
+    if not cookie_password.strip() or not refresh_token.strip():
+        return
+
+    try:
+        ciphertext = encrypt_value(password=cookie_password, value=refresh_token)
+    except Exception:
+        return
+
+    secure = "; Secure" if _should_set_secure_cookie() else ""
+    js = (
+        "(() => {"
+        f"const n={PERSISTENT_REFRESH_COOKIE!r};"
+        f"const v={ciphertext!r};"
+        "const exp = new Date(Date.now() + 365*24*60*60*1000).toUTCString();"
+        f"document.cookie = encodeURIComponent(n) + '=' + encodeURIComponent(v) + '; expires=' + exp + '; path=/; SameSite=Lax{secure}';"
+        "return true;"
+        "})()"
+    )
+    # Key includes a short hash so Streamlit treats it as a new component call when rotated.
+    streamlit_js_eval(js_expressions=js, want_output=False, key=f"set_persistent_rt_{abs(hash(ciphertext)) % 1_000_000}")
 
 
 def _clear_persistent_refresh_cookie() -> None:
@@ -118,6 +145,8 @@ def main() -> None:
                 )
                 st.session_state.pop("auth_refresh_failure_ts", None)
                 if auth_state.refresh_token and auth_state.refresh_token != refresh_token:
+                    # Supabase may rotate refresh tokens. Persist the new one so future restores work.
+                    _set_persistent_refresh_cookie(refresh_token=auth_state.refresh_token, cookie_password=cookie_password)
                     cookies["sb_refresh_token"] = auth_state.refresh_token
                     cookies.save()
                     st.rerun()
